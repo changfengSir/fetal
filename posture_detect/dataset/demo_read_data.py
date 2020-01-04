@@ -46,13 +46,14 @@ def read_xlrd(excelFile):
 if __name__ == '__main__':
     excelFile = './training.xls'
     img = read_xlrd(excelFile=excelFile)
-    import numpy as np
-    img_ = np.array(img)
-    new_img=[]
-    for i in range(img_.shape[0]):
-        tmp_name = img_[i][0].split('.')[0]+'_Annotation.png'
-        # img_[:,0]=img_[:,0].split('.')[0]+'_Annotation.png'
-        tmp_img = (tmp_name,img_[i][1])
-        new_img.append(tmp_img)
-    new_img_ = np.array(new_img)
-    print(new_img_)
+    # import numpy as np
+    # img_ = np.array(img)
+    # new_img=[]
+    # for i in range(img_.shape[0]):
+    #     tmp_name = img_[i][0].split('.')[0]+'_Annotation.png'
+    #     # img_[:,0]=img_[:,0].split('.')[0]+'_Annotation.png'
+    #     tmp_img = (tmp_name,img_[i][1])
+    #     new_img.append(tmp_img)
+    # new_img_ = np.array(new_img)
+    # print(new_img_)
+    print(type(img[0][1]))

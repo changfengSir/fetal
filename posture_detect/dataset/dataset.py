@@ -23,7 +23,7 @@ class FetalPosture(Dataset):
 
     def __getitem__(self, index):
         data = Image.open(os.path.join(self.path, self.data[index,0]))
-        label = 1 if '1.0'==self.data[index,1] else 0
+        label = 1 if 1.0==self.data[index,1] else 0
         if self.transform!=None:
             data = self.transform(data)
 
