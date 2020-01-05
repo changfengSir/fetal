@@ -106,34 +106,41 @@ def test(args):
     print('Accuracy：%.3f'%acc)
 
 
-def test_single(args):
+def test_label(args):
     test_transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor()
+        # transforms.Normalize([0.15598613,0.15598613,0.15598613],[0.43895477,0.43895477,0.43895477])
     ])
-    test_dataset = FetalPosture(args.test_path, mode='eee', transform=test_transform)
+    test_dataset = FetalPosture(args.test_path, mode='test', transform=test_transform)
     test_dataloader = DataLoader(test_dataset, shuffle=False, batch_size=args.batch_size)
-    global best_acc
     model = Posture()
     model = model.cuda()
     model = nn.DataParallel(model)
-    model.load_state_dict(t.load('./checkpoint/weight_VGG13_ori_size_epoch14.pth'), strict=False)
-
+    model.load_state_dict(t.load('./checkpoint/weight_VGG13_transfer_argument_1_epoch19.pth'))
     model.eval()
 
-    correct = 0
     total = len(test_dataloader.dataset)
+    results = []
     with t.no_grad():
         for batch_idx, (inputs, targets) in enumerate(test_dataloader):
             inputs, targets = inputs.cuda(), targets.cuda()
             outputs = model(inputs)
-            # loss = criterion(outputs, targets)
-            #
-            # test_loss += loss.item()
-            predicted = outputs.argmax(dim=1, keepdim=True)
+            probability = t.nn.functional.softmax(outputs, dim=1)[:, 0].detach().tolist()
+            # label = score.max(dim = 1)[1].detach().tolist()
 
-        print('Accuracy：%.6f' % predicted)
+            batch_results = [( probability_) for  probability_ in zip(probability)]
 
+            results += batch_results
+        write_csv(results, 'result.csv')
+
+
+def write_csv(results,file_name):
+    import csv
+    with open(file_name,'w') as f:
+        writer = csv.writer(f)
+        writer.writerow(['id','label'])
+        writer.writerows(results)
 
 if __name__=="__main__":
     import datetime
