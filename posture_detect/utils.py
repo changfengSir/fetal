@@ -41,55 +41,55 @@ def init_params(net):
             if m.bias:
                 init.constant(m.bias, 0)
 
-#
+
 # _, term_width = os.popen('stty size', 'r').read().split()
 # term_width = int(term_width)
 #
 # TOTAL_BAR_LENGTH = 65.
 # last_time = time.time()
-# # begin_time = last_time
-# def progress_bar(current, total, msg=None):
-#     global last_time, begin_time
-#     if current == 0:
-#         begin_time = time.time()  # Reset for new bar.
-#
-#     cur_len = int(TOTAL_BAR_LENGTH*current/total)
-#     rest_len = int(TOTAL_BAR_LENGTH - cur_len) - 1
-#
-#     sys.stdout.write(' [')
-#     for i in range(cur_len):
-#         sys.stdout.write('=')
-#     sys.stdout.write('>')
-#     for i in range(rest_len):
-#         sys.stdout.write('.')
-#     sys.stdout.write(']')
-#
-#     cur_time = time.time()
-#     step_time = cur_time - last_time
-#     last_time = cur_time
-#     tot_time = cur_time - begin_time
-#
-#     L = []
-#     L.append('  Step: %s' % format_time(step_time))
-#     L.append(' | Tot: %s' % format_time(tot_time))
-#     if msg:
-#         L.append(' | ' + msg)
-#
-#     msg = ''.join(L)
-#     sys.stdout.write(msg)
-#     for i in range(term_width-int(TOTAL_BAR_LENGTH)-len(msg)-3):
-#         sys.stdout.write(' ')
-#
-#     # Go back to the center of the bar.
-#     for i in range(term_width-int(TOTAL_BAR_LENGTH/2)+2):
-#         sys.stdout.write('\b')
-#     sys.stdout.write(' %d/%d ' % (current+1, total))
-#
-#     if current < total-1:
-#         sys.stdout.write('\r')
-#     else:
-#         sys.stdout.write('\n')
-#     sys.stdout.flush()
+# begin_time = last_time
+def progress_bar(current, total, msg=None):
+    global last_time, begin_time
+    if current == 0:
+        begin_time = time.time()  # Reset for new bar.
+
+    cur_len = int(TOTAL_BAR_LENGTH*current/total)
+    rest_len = int(TOTAL_BAR_LENGTH - cur_len) - 1
+
+    sys.stdout.write(' [')
+    for i in range(cur_len):
+        sys.stdout.write('=')
+    sys.stdout.write('>')
+    for i in range(rest_len):
+        sys.stdout.write('.')
+    sys.stdout.write(']')
+
+    cur_time = time.time()
+    step_time = cur_time - last_time
+    last_time = cur_time
+    tot_time = cur_time - begin_time
+
+    L = []
+    L.append('  Step: %s' % format_time(step_time))
+    L.append(' | Tot: %s' % format_time(tot_time))
+    if msg:
+        L.append(' | ' + msg)
+
+    msg = ''.join(L)
+    sys.stdout.write(msg)
+    for i in range(term_width-int(TOTAL_BAR_LENGTH)-len(msg)-3):
+        sys.stdout.write(' ')
+
+    # Go back to the center of the bar.
+    for i in range(term_width-int(TOTAL_BAR_LENGTH/2)+2):
+        sys.stdout.write('\b')
+    sys.stdout.write(' %d/%d ' % (current+1, total))
+
+    if current < total-1:
+        sys.stdout.write('\r')
+    else:
+        sys.stdout.write('\n')
+    sys.stdout.flush()
 
 def format_time(seconds):
     days = int(seconds / 3600/24)
@@ -128,9 +128,12 @@ if __name__=='__main__':
     from dataset.dataset import FetalPosture
     from torchvision.transforms import transforms
     transform = transforms.ToTensor()
-    dataset = FetalPosture('E:\\files\\python_workspace\\fetal_ultrasound\\simple_u_net_v2\\dataset\\data\\',transform=transform)
+    dataset = FetalPosture('./dataset/train_label/',mode='train',transform=transform)
     mean,std =get_mean_and_std(dataset)
     print(mean.numpy())
     print(std.numpy())
     # [0.15598613 0.         0.        ]
     # [0.16407572 0.         0.        ]
+    # 有label
+    # [0.29648647  0.          0.]
+    # [0.43895477  0.          0.]

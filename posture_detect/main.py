@@ -4,81 +4,142 @@ from dataset.dataset import FetalPosture
 from torchvision.transforms import transforms
 from torch import optim
 import torch.nn as nn
-from model.vgg import VGG
+# from model.vgg import VGG
+# # from model.ResNet34 import ResNet34
+from model.posture import Posture
 from tqdm import tqdm
 import argparse
-import torch.nn.functional as F
+# from utils import progress_bar
 
 parser = argparse.ArgumentParser(description='Pytorch implement Fetal_posture detection')
-parser.add_argument('--batch-size',default=16,type=int)
-parser.add_argument('--lr',default=0.001,type=float)
-parser.add_argument('--epoch',default=10,type=int)
-parser.add_argument('--path',default=None,help='location of images')
-parser.add_argument('--save',default=None,help='location of the saved model')
+parser.add_argument('--batch-size', default=14, type=int)
+parser.add_argument('--lr', default=0.0001, type=float)
+parser.add_argument('--epoch', default=20, type=int)
+# parser.add_argument('--model', default='VGG(\'VGG13\')')
+parser.add_argument('--train_path', default='./dataset/data/', help='location of train images')
+parser.add_argument('--test_path', default='./dataset/test/', help='location of test images')
+parser.add_argument('--save', default='./checkpoint/', help='location of the saved model')
+parser.add_argument('--weight-decay', type=float, default=5e-4)
 args = parser.parse_args()
+
+
 
 def train(args):
     train_transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize()
+        transforms.RandomCrop(224,224),
+        # transforms.FiveCrop(512),
+        # transforms.RandomHorizontalFlip(),
+        transforms.ToTensor()
+        # transforms.Normalize([0.15598613,0.15598613,0.15598613],[0.43895477,0.43895477,0.43895477])
     ])
 
 
-
-    train_dataset = FetalPosture(args.path,mode='train', transform=train_transform)
+    train_dataset = FetalPosture(args.train_path,mode='train',transform=train_transform)
     train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=args.batch_size)
-    train_model(args.epoch,train_dataloader)
+    #
+    train_model(args,args.epoch,train_dataloader)
 
 
-def train_model(epochs,dataloader):
+def train_model(args,epochs,dataloader):
+    model = Posture()
+    model = nn.DataParallel(model)
+    model = model.cuda()
+    # model.load_state_dict(t.load('./checkpoint/weight_VGG13_2_epoch14.pth'), strict=False)
+    # dsize = len(dataloader.dataset)
+    model.train()
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam()
-    model = VGG('VGG13')
+    optimizer = optim.Adam(model.parameters(),lr=args.lr,betas=(0.9,0.999))
     for epoch in range(epochs):
         epoch_loss = 0
         step = 0
-        for i ,(data,label) in tqdm(enumerate(dataloader)):
-            input = data
-            target = label
+        for i ,(data,label) in enumerate(dataloader):
+            input = data.cuda()
+            target = label.cuda()
             output = model(input)
+            # print(output)
             step += 1
             optimizer.zero_grad()
             loss = criterion(output,target)
             loss.backward()
             optimizer.step()
             epoch_loss += loss.item()
-        print('Epoch:%d Step%d Loss:%f '%(epoch,i,loss.item()))
-    print('Epoch:%d Loss:%f ' % (epoch, epoch_loss / step ))
 
+            print('Epoch%d step%d loss:%0.3f'%(epoch,i,loss.item()))
+        print('Epoch:%d Loss:%0.3f '%(epoch,epoch_loss/step))
+    t.save(model.state_dict(),'./checkpoint/weight_VGG13_transfer_argument_1_epoch%d.pth'%epoch)
+    # t.save(model.state_dict(), 'weight_resnet34_%d_trainlabel.pth' % epoch)
 
-
-def test():
+def test(args):
     test_transform = transforms.Compose([
-
+        transforms.Resize((224, 224)),
+        transforms.ToTensor()
+        # transforms.Normalize([0.15598613,0.15598613,0.15598613],[0.43895477,0.43895477,0.43895477])
     ])
-    test_dataset = FetalPosture(args.path, transform=test_transform)
+    test_dataset = FetalPosture(args.test_path, mode='test',transform=test_transform)
     test_dataloader = DataLoader(test_dataset, shuffle=False, batch_size=args.batch_size)
-
-    model = VGG('VGG13')
+    global best_acc
+    model = Posture()
     model = model.cuda()
+    model = nn.DataParallel(model)
+    model.load_state_dict(t.load('./checkpoint/weight_VGG13_transfer_argument_1_epoch19.pth'))
 
     model.eval()
-    test_loss = 0
+
     correct = 0
-    for i, (data, label) in enumerate(test_dataloader):
-        data, label = data.cuda(), label.cuda()
-        output = model(data)
-        test_loss = F.nll_loss(output, label, reduction='sum').item()
-        pred = output.argmax(dim=1, keepdim=True)
-        correct += pred.eq(label.view_as(pred)).sum().item()
-    test_loss /= len(test_dataloader.dataset)
+    total = len(test_dataloader.dataset)
+    with t.no_grad():
+        for batch_idx, (inputs, targets) in enumerate(test_dataloader):
+            inputs, targets = inputs.cuda(), targets.cuda()
+            outputs = model(inputs)
+            # loss = criterion(outputs, targets)
+            #
+            # test_loss += loss.item()
+            predicted = outputs.argmax(dim=1,keepdim=True)
+            # total += targets.size(0)
+            correct += predicted.eq(targets.view_as(predicted)).sum().item()
 
-    print('\nTest set:Average Loss:{:.4f} Accuracy:{}/{} ({:.0f}%)\n'.format(
-        test_loss, correct, len(test_dataloader.dataset),
-        100. * correct / len(test_dataloader.dataset)
-    ))
+            # progress_bar(batch_idx, len(test_dataloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
+            #              % (test_loss / (batch_idx + 1), 100. * correct / total, correct, total))
+            # print('Acc: %.3f' %(100. * correct / total))
+    # Save checkpoint.
+        acc = 100. * correct / total
+    print('Accuracy：%.3f'%acc)
 
-    return 0
+
+def test_single(args):
+    test_transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor()
+    ])
+    test_dataset = FetalPosture(args.test_path, mode='eee', transform=test_transform)
+    test_dataloader = DataLoader(test_dataset, shuffle=False, batch_size=args.batch_size)
+    global best_acc
+    model = Posture()
+    model = model.cuda()
+    model = nn.DataParallel(model)
+    model.load_state_dict(t.load('./checkpoint/weight_VGG13_ori_size_epoch14.pth'), strict=False)
+
+    model.eval()
+
+    correct = 0
+    total = len(test_dataloader.dataset)
+    with t.no_grad():
+        for batch_idx, (inputs, targets) in enumerate(test_dataloader):
+            inputs, targets = inputs.cuda(), targets.cuda()
+            outputs = model(inputs)
+            # loss = criterion(outputs, targets)
+            #
+            # test_loss += loss.item()
+            predicted = outputs.argmax(dim=1, keepdim=True)
+
+        print('Accuracy：%.6f' % predicted)
+
 
 if __name__=="__main__":
-    train()
+    import datetime
+    start = datetime.datetime.now()
+    # train(args)
+    test(args)
+    # test_single(args)
+    end = datetime.datetime.now()
+    print(end-start)

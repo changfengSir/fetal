@@ -4,7 +4,8 @@ import torch.nn as nn
 
 
 cfg = {
-    'VGG11': [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
+    'VGG11': [21, 'M', 42, 'M', 84, 84, 'M', 168, 168, 'M', 168, 168, 'M'],
+    # 'VGG11': [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
     'VGG13': [64, 64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
     'VGG16': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
     'VGG19': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
@@ -15,11 +16,25 @@ class VGG(nn.Module):
     def __init__(self, vgg_name):
         super(VGG, self).__init__()
         self.features = self._make_layers(cfg[vgg_name])
-        self.classifier = nn.Linear(131072, 2)
+        self.mp = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.fc1 = nn.Sequential(
+            nn.Linear(32768,4092),
+            nn.Dropout(),
+            nn.LeakyReLU(inplace=True))
+        self.fc2 = nn.Sequential(
+            nn.Linear(4092, 512),
+            nn.Dropout(),
+            nn.LeakyReLU(inplace=True))
+
+        self.classifier = nn.Linear(512, 2)
 
     def forward(self, x):
         out = self.features(x)
+        out = self.mp(out)
         out = out.view(out.size(0), -1)
+        # print(out.shape)
+        out = self.fc1(out)
+        out = self.fc2(out)
         out = self.classifier(out)
         return out
 
@@ -38,10 +53,11 @@ class VGG(nn.Module):
         return nn.Sequential(*layers)
 
 
-def test():
+if __name__=='__main__':
     net = VGG('VGG13')
-    x = torch.randn(1,1,512,512)
+    x = torch.randn(2,1,540,540)
     y = net(x)
-    print(y)
+    print(y.size())
 
-test()
+
+
