@@ -3,10 +3,8 @@
     - msr_init: net parameter initialization.
     - progress_bar: progress bar mimic xlua.progress.
 '''
-import os
 import sys
 import time
-import math
 
 import torch.nn as nn
 import torch.nn.init as init
@@ -125,7 +123,7 @@ def format_time(seconds):
 
 
 if __name__=='__main__':
-    from dataset.dataset import FetalPosture
+    from dataset import FetalPosture
     from torchvision.transforms import transforms
     transform = transforms.ToTensor()
     dataset = FetalPosture('./dataset/train_label/',mode='train',transform=transform)

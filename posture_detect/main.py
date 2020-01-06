@@ -1,13 +1,12 @@
 import torch as t
 from torch.utils.data import DataLoader
-from dataset.dataset import FetalPosture
+from dataset import FetalPosture
 from torchvision.transforms import transforms
 from torch import optim
 import torch.nn as nn
 # from model.vgg import VGG
 # # from model.ResNet34 import ResNet34
-from model.posture import Posture
-from tqdm import tqdm
+from model import Posture
 import argparse
 # from utils import progress_bar
 
@@ -23,7 +22,7 @@ parser.add_argument('--weight-decay', type=float, default=5e-4)
 args = parser.parse_args()
 
 
-
+# 训练
 def train(args):
     train_transform = transforms.Compose([
         transforms.RandomCrop(224,224),
@@ -69,8 +68,10 @@ def train_model(args,epochs,dataloader):
     t.save(model.state_dict(),'./checkpoint/weight_VGG13_transfer_argument_1_epoch%d.pth'%epoch)
     # t.save(model.state_dict(), 'weight_resnet34_%d_trainlabel.pth' % epoch)
 
+# 测试
 def test(args):
     test_transform = transforms.Compose([
+        # transforms.Scale()
         transforms.Resize((224, 224)),
         transforms.ToTensor()
         # transforms.Normalize([0.15598613,0.15598613,0.15598613],[0.43895477,0.43895477,0.43895477])
@@ -106,6 +107,7 @@ def test(args):
     print('Accuracy：%.3f'%acc)
 
 
+# 测试结果写到文件
 def test_label(args):
     test_transform = transforms.Compose([
         transforms.Resize((224, 224)),
