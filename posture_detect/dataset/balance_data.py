@@ -37,16 +37,17 @@ new_img_1=[]
 for i in h:
     new_img_1.append(img_1[i])
 new_list = new_img_1+img_2+img_3
-# print(new_list)
-# new_list = np.array(new_list)
 
+
+"""
+    平衡后的数据集写入文件
+"""
 import csv
 with open('balanced_test.csv','w',newline='') as f:
-
-    # writer = csv.writer(f)
-    # writer.writerows(zip(new_list))
-    for i in range(len(new_list)):
-        f.write(("{name},{place}\n".format(name='\n'.join(new_list[i][0]), place='\n'.join(new_list[i][1]))))
-    #     writer.writerows(zip(new_list[i][0],new_list[i][1]))
-        # writer.writerow([new_list[i][0]])
-        # writer.writerow([new_list[i][1]])
+    writer = csv.writer(f)
+    row1=[]
+    row2=[]
+    for index in range(len(new_list)):
+        row1.append(new_list[index][0])
+        row2.append(new_list[index][1])
+    writer.writerows(zip(row1,row2))

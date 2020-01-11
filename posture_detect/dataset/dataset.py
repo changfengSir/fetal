@@ -36,6 +36,17 @@ def read_data_single(path):
     return data
 
 
+def read_csv_data(path):
+    import csv
+    with open(path, 'r') as f:
+        reader = csv.reader(f)
+        csv_data=[]
+        for row in reader:
+            csv_data.append(row)
+        csv_data_np=np.array(csv_data)
+    return csv_data_np
+
+
 
 class FetalPosture(Dataset):
     def __init__(self,path,mode=None,transform=None):
@@ -43,7 +54,8 @@ class FetalPosture(Dataset):
         if mode=='train':
             self.data = read_xlrd('./dataset/training.xls')
         elif mode=='test':
-            self.data = read_xlrd('./dataset/test.xlsx')
+            self.data = read_csv_data('./balanced_test.csv')
+            # self.data = read_xlrd('./dataset/test.xlsx')
         else:
             self.data = read_data_single(path)
 
