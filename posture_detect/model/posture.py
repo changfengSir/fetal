@@ -14,28 +14,26 @@ class Posture(torch.nn.Module):
 
         if self._is_all:
             # Convolution and pooling layers of VGG-16.
-            self.features = torchvision.models.vgg16(pretrained=True).features
-            # self.features = torch.nn.Sequential(*list(self.features.children())
+            self.features = torchvision.models.vgg16(pretrained=False).features
+            self.features = torch.nn.Sequential(*list(self.features.children())[:-1])
             #                                     [:-1])  # Remove fc.
 
+        self.gap = torch.nn.AdaptiveAvgPool2d((1,1))
         # Classification layer.
-        self.fc_1 = torch.nn.Sequential(
+        self.fc = torch.nn.Sequential(
             torch.nn.Linear(
-            in_features=7*7*512, out_features=4096, bias=True),
+            in_features=1*1*512, out_features=1024, bias=True),
             # torch.nn.ReLU(True),
-            torch.nn.Tanh(),
-            torch.nn.Dropout()
-        )
-
-        self.fc_2 = torch.nn.Sequential(
+            torch.nn.LeakyReLU(inplace=True),
+            torch.nn.Dropout(),
             torch.nn.Linear(
-            in_features=4096, out_features=4096, bias=True),
+                in_features=1024, out_features=1024, bias=True),
             # torch.nn.ReLU(True),
-            torch.nn.Tanh(),
-            torch.nn.Dropout()
-        )
+            torch.nn.LeakyReLU(inplace=True),
+            torch.nn.Dropout(),
+            torch.nn.Linear(in_features=1024, out_features=2, bias=True)
 
-        self.fc_3 = torch.nn.Linear(in_features=4096, out_features=2, bias=True)
+        )
 
 
         if not self._is_all:
@@ -73,17 +71,18 @@ class Posture(torch.nn.Module):
         # if self._is_all:
         #     assert X.size() == (N, 3, 448, 448)
         x = self.features(X)
+        x = self.gap(x)
         # assert X.size() == (N, 512, 28, 28)
         # print(x.shape)
         x = x.view(x.shape[0],-1)
-        x = self.fc_1(x)
-        x = self.fc_2(x)
-        x = self.fc_3(x)
-
-        return x
+        x = self.fc(x)
+        # print(x)
+        return torch.nn.functional.softmax(x,dim=1)
 
 if __name__=='__main__':
     net = Posture()
+    print(net.fc)
+    print('----')
     x = torch.randn(2,3,224,224)
     y = net(x)
-    print(y.size())
+    print(y)

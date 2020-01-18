@@ -1,22 +1,23 @@
 import torch as t
 from torch.utils.data import DataLoader
-from dataset import FetalPosture
+from dataset.dataset import FetalPosture
 from torchvision.transforms import transforms
 from torch import optim
 import torch.nn as nn
 # from model.vgg import VGG
 # # from model.ResNet34 import ResNet34
-from model import Posture
+from model.posture import Posture
 import argparse
 # from utils import progress_bar
+import logging
 
 parser = argparse.ArgumentParser(description='Pytorch implement Fetal_posture detection')
-parser.add_argument('--batch-size', default=14, type=int)
-parser.add_argument('--lr', default=0.0001, type=float)
-parser.add_argument('--epoch', default=20, type=int)
+parser.add_argument('--batch-size', default=10, type=int)
+# parser.add_argument('--lr', default=0.001, type=float)
+parser.add_argument('--epoch', default=10, type=int)
 # parser.add_argument('--model', default='VGG(\'VGG13\')')
-parser.add_argument('--train_path', default='./dataset/data/', help='location of train images')
-parser.add_argument('--test_path', default='./dataset/test/', help='location of test images')
+parser.add_argument('--train_path', default='/home/p920/changfeng/workspace/fetal_data/data/', help='location of train images')
+parser.add_argument('--test_path', default='/home/p920/changfeng/workspace/fetal_data/test/', help='location of test images')
 parser.add_argument('--save', default='./checkpoint/', help='location of the saved model')
 parser.add_argument('--weight-decay', type=float, default=5e-4)
 args = parser.parse_args()
@@ -25,8 +26,9 @@ args = parser.parse_args()
 # 训练
 def train(args):
     train_transform = transforms.Compose([
-        transforms.RandomCrop(224,224),
-        # transforms.FiveCrop(512),
+        transforms.Resize(224),
+        # transforms.RandomCrop(224,224),
+        transforms.FiveCrop((224,224)),
         # transforms.RandomHorizontalFlip(),
         transforms.ToTensor()
         # transforms.Normalize([0.15598613,0.15598613,0.15598613],[0.43895477,0.43895477,0.43895477])
@@ -47,29 +49,42 @@ def train_model(args,epochs,dataloader):
     # dsize = len(dataloader.dataset)
     model.train()
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(),lr=args.lr,betas=(0.9,0.999))
+    optimizer = optim.Adam(
+        [{'params':model.features,'lr':0.01,'weight_decay':0.9},
+        {'params':model.fc,'lr':0.001,'weight_decay':0.0005}])
+    global_step=0
     for epoch in range(epochs):
         epoch_loss = 0
         step = 0
+        adjust_learning_rate(optimizer,epoch)
         for i ,(data,label) in enumerate(dataloader):
             input = data.cuda()
             target = label.cuda()
             output = model(input)
             # print(output)
             step += 1
+            global_step+=1
             optimizer.zero_grad()
             loss = criterion(output,target)
+            if global_step%10==0:
+                vis.line([loss.item()],[global_step],win='posture_loss',update='append')
             loss.backward()
             optimizer.step()
             epoch_loss += loss.item()
 
             print('Epoch%d step%d loss:%0.3f'%(epoch,i,loss.item()))
         print('Epoch:%d Loss:%0.3f '%(epoch,epoch_loss/step))
-    t.save(model.state_dict(),'./checkpoint/weight_VGG13_transfer_argument_1_epoch%d.pth'%epoch)
+        logging.info('Epoch:%d Loss:%0.3f '%(epoch,epoch_loss/step))
+
+        test(args,model)
+
+        logging.info('--'*30)
+
+    t.save(model.state_dict(),'./checkpoint/weight_VGG13_transfer_argument_4_epoch%d.pth'%epoch)
     # t.save(model.state_dict(), 'weight_resnet34_%d_trainlabel.pth' % epoch)
 
 # 测试
-def test(args):
+def test(args,model):
     test_transform = transforms.Compose([
         # transforms.Scale()
         transforms.Resize((224, 224)),
@@ -79,10 +94,10 @@ def test(args):
     test_dataset = FetalPosture(args.test_path, mode='test',transform=test_transform)
     test_dataloader = DataLoader(test_dataset, shuffle=False, batch_size=args.batch_size)
     global best_acc
-    model = Posture()
-    model = model.cuda()
-    model = nn.DataParallel(model)
-    model.load_state_dict(t.load('./checkpoint/weight_VGG13_transfer_argument_1_epoch19.pth'))
+    # model = Posture()
+    # model = model.cuda()
+    # model = nn.DataParallel(model)
+    # model.load_state_dict(t.load('./checkpoint/weight_VGG13_transfer_argument_3_epoch9.pth'))
 
     model.eval()
 
@@ -92,19 +107,16 @@ def test(args):
         for batch_idx, (inputs, targets) in enumerate(test_dataloader):
             inputs, targets = inputs.cuda(), targets.cuda()
             outputs = model(inputs)
-            # loss = criterion(outputs, targets)
-            #
-            # test_loss += loss.item()
             predicted = outputs.argmax(dim=1,keepdim=True)
             # total += targets.size(0)
             correct += predicted.eq(targets.view_as(predicted)).sum().item()
-
             # progress_bar(batch_idx, len(test_dataloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
             #              % (test_loss / (batch_idx + 1), 100. * correct / total, correct, total))
             # print('Acc: %.3f' %(100. * correct / total))
     # Save checkpoint.
         acc = 100. * correct / total
     print('Accuracy：%.3f'%acc)
+    logging.info('Accuracy：%.3f'%acc)
 
 
 # 测试结果写到文件
@@ -137,6 +149,11 @@ def test_label(args):
         write_csv(results, 'result.csv')
 
 
+def adjust_learning_rate(optimizer, epoch):
+    lr = args.lr * (0.1 ** (epoch // 5))
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+
 def write_csv(results,file_name):
     import csv
     with open(file_name,'w') as f:
@@ -147,6 +164,9 @@ def write_csv(results,file_name):
 if __name__=="__main__":
     import datetime
     start = datetime.datetime.now()
+    import visdom
+    vis = visdom.Visdom(env='posture')
+    vis.line([0.], [0.], win='train_loss', opts=dict(title='train loss'))
     # train(args)
     test(args)
     # test_single(args)
