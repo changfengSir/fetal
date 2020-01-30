@@ -54,7 +54,7 @@ class FetalPosture(Dataset):
         if mode=='train':
             self.data = read_xlrd('./dataset/training.xls')
         elif mode=='test':
-            self.data = read_csv_data('./balanced_test.csv')
+            self.data = read_csv_data('./dataset/balanced_test.csv')
             # self.data = read_xlrd('./dataset/test.xlsx')
         else:
             self.data = read_data_single(path)
@@ -80,17 +80,17 @@ if __name__ == '__main__':
     # print(data)
     from torchvision.transforms import transforms
     train_transform = transforms.Compose([
-        transforms.Resize((512, 512)),
+        transforms.Resize((224, 224)),
         transforms.ToTensor()
     ])
-    dataset = FetalPosture('./data/',mode='test',transform=train_transform)
+    dataset = FetalPosture('E:\\files\workspace\\fetal\\simple_u_net_v2\\dataset\\data',mode='train',transform=train_transform)
     from torch.utils.data import DataLoader
-    train_dataloader = DataLoader(dataset, shuffle=True, batch_size=1)
+    train_dataloader = DataLoader(dataset, shuffle=False, batch_size=1)
     count=0
     for i,(data,label) in enumerate(train_dataloader):
         # if label=='1':
         #     count+=1
-        print(label)
+        print(type(data))
     # print(len(train_dataloader.dataset))
     # datas = read_data_single('./test_single')
     # print(datas)

@@ -14,24 +14,24 @@ class Posture(torch.nn.Module):
 
         if self._is_all:
             # Convolution and pooling layers of VGG-16.
-            self.features = torchvision.models.vgg11(pretrained=False).features
+            self.features = torchvision.models.resnet50(pretrained=False)
             self.features = torch.nn.Sequential(*list(self.features.children())[:-1])
             #                                     [:-1])  # Remove fc.
 
-        self.gap = torch.nn.AdaptiveAvgPool2d((1,1))
+        # self.gap = torch.nn.AdaptiveAvgPool2d((1,1))
         # Classification layer.
         self.fc = torch.nn.Sequential(
             torch.nn.Linear(
-            in_features=1*1*512, out_features=1024, bias=True),
-            # torch.nn.ReLU(True),
-            torch.nn.LeakyReLU(inplace=True),
-            torch.nn.Dropout(),
-            torch.nn.Linear(
-                in_features=1024, out_features=1024, bias=True),
-            # torch.nn.ReLU(True),
-            torch.nn.LeakyReLU(inplace=True),
-            torch.nn.Dropout(),
-            torch.nn.Linear(in_features=1024, out_features=2, bias=True)
+            in_features=2048, out_features=2, bias=True)
+        # # torch.nn.ReLU(True),
+        # torch.nn.LeakyReLU(inplace=True),
+        # torch.nn.Dropout(),
+        # torch.nn.Linear(
+        #     in_features=1024, out_features=1024, bias=True),
+        # # torch.nn.ReLU(True),
+        # torch.nn.LeakyReLU(inplace=True),
+        # torch.nn.Dropout(),
+        # torch.nn.Linear(in_features=1024, out_features=2, bias=True)
 
         )
 
@@ -58,22 +58,9 @@ class Posture(torch.nn.Module):
                 torch.nn.init.constant_(module.bias, val=0.0)
 
     def forward(self, X):
-        """Forward pass of the network.
-
-        Args:
-            X, torch.Tensor (N*3*448*448).
-
-        Returns:
-            score, torch.Tensor (N*200).
-        """
-        # Input.
-        # N = X.size()[0]
-        # if self._is_all:
-        #     assert X.size() == (N, 3, 448, 448)
         x = self.features(X)
-        x = self.gap(x)
-        # assert X.size() == (N, 512, 28, 28)
-        # print(x.shape)
+        # x = self.gap(x)
+
         x = x.view(x.shape[0],-1)
         x = self.fc(x)
         # print(x)

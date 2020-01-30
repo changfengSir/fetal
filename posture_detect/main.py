@@ -6,30 +6,44 @@ from torch import optim
 import torch.nn as nn
 # from model.vgg import VGG
 # # from model.ResNet34 import ResNet34
-from model.posture import Posture
+from model.posture_resnet import Posture
 import argparse
 # from utils import progress_bar
 import logging
 
 parser = argparse.ArgumentParser(description='Pytorch implement Fetal_posture detection')
-parser.add_argument('--batch-size', default=10, type=int)
-# parser.add_argument('--lr', default=0.001, type=float)
-parser.add_argument('--epoch', default=10, type=int)
+parser.add_argument('--batch-size', default=5, type=int)
+parser.add_argument('--lr', default=0.001, type=float)
+parser.add_argument('--epoch', default=50, type=int)
 # parser.add_argument('--model', default='VGG(\'VGG13\')')
-parser.add_argument('--train_path', default='/home/p920/changfeng/workspace/fetal_data/data/', help='location of train images')
-parser.add_argument('--test_path', default='/home/p920/changfeng/workspace/fetal_data/test/', help='location of test images')
+parser.add_argument('--train_path', default='E:/files/datasets/fetal/data', help='location of train images')
+# parser.add_argument('--train_path', default='/home/p920/changfeng/workspace/fetal_data/data/', help='location of train images')
+parser.add_argument('--test_path', default='E:/files/datasets/fetal/test', help='location of test images')
 parser.add_argument('--save', default='./checkpoint/', help='location of the saved model')
 parser.add_argument('--weight-decay', type=float, default=5e-4)
 args = parser.parse_args()
 
 
+def trainlog(logfilepath, head='%(message)s'):
+    logger = logging.getLogger('mylogger')
+    logging.basicConfig(filename=logfilepath, level=logging.INFO, format=head)
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    formatter = logging.Formatter(head)
+    console.setFormatter(formatter)
+    logging.getLogger('').addHandler(console)
+
+# five_transform = transforms.Compose([
+#     transforms.FiveCrop((224, 224)),
+#     transforms.Lambda(lambda crops: t.stack([transforms.ToTensor()(crop) for crop in crops]))])
 # 训练
 def train(args):
     train_transform = transforms.Compose([
         transforms.Resize(224),
         # transforms.RandomCrop(224,224),
-        transforms.FiveCrop((224,224)),
         # transforms.RandomHorizontalFlip(),
+        transforms.CenterCrop(224),
+        transforms.RandomHorizontalFlip(),
         transforms.ToTensor()
         # transforms.Normalize([0.15598613,0.15598613,0.15598613],[0.43895477,0.43895477,0.43895477])
     ])
@@ -49,14 +63,17 @@ def train_model(args,epochs,dataloader):
     # dsize = len(dataloader.dataset)
     model.train()
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(
-        [{'params':model.features,'lr':0.01,'weight_decay':0.9},
-        {'params':model.fc,'lr':0.001,'weight_decay':0.0005}])
+    if isinstance(model, t.nn.DataParallel):
+        model = model.module
+    optimizer = optim.Adam([
+        {'params':model.features.parameters(),'lr':0.003,'weight_decay':0.9},
+        {'params':model.fc.parameters(),'lr':0.001,'weight_decay':0.0005}
+    ],lr=args.lr,weight_decay=args.weight_decay)
     global_step=0
     for epoch in range(epochs):
         epoch_loss = 0
         step = 0
-        adjust_learning_rate(optimizer,epoch)
+        # adjust_learning_rate(optimizer,epoch)
         for i ,(data,label) in enumerate(dataloader):
             input = data.cuda()
             target = label.cuda()
@@ -73,18 +90,44 @@ def train_model(args,epochs,dataloader):
             epoch_loss += loss.item()
 
             print('Epoch%d step%d loss:%0.3f'%(epoch,i,loss.item()))
-        print('Epoch:%d Loss:%0.3f '%(epoch,epoch_loss/step))
+        # print('Epoch:%d Loss:%0.3f '%(epoch,epoch_loss/step))
         logging.info('Epoch:%d Loss:%0.3f '%(epoch,epoch_loss/step))
 
-        test(args,model)
+        val(args,dataloader,model,epoch)
+        test(args,model,epoch)
 
         logging.info('--'*30)
 
     t.save(model.state_dict(),'./checkpoint/weight_VGG13_transfer_argument_4_epoch%d.pth'%epoch)
     # t.save(model.state_dict(), 'weight_resnet34_%d_trainlabel.pth' % epoch)
 
+
+# val
+def val(args,test_dataloader,model,epoch):
+    global best_acc
+
+    model.eval()
+    correct = 0
+    total = len(test_dataloader.dataset)
+    with t.no_grad():
+        for batch_idx, (inputs, targets) in enumerate(test_dataloader):
+            inputs, targets = inputs.cuda(), targets.cuda()
+            outputs = model(inputs)
+            predicted = outputs.argmax(dim=1,keepdim=True)
+            # total += targets.size(0)
+            correct += predicted.eq(targets.view_as(predicted)).sum().item()
+            # progress_bar(batch_idx, len(test_dataloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
+            #              % (test_loss / (batch_idx + 1), 100. * correct / total, correct, total))
+            # print('Acc: %.3f' %(100. * correct / total))
+    # Save checkpoint.
+        acc = 100. * correct / total
+        vis.line([acc], [epoch], win='accuracy', update='append')
+    # print('Accuracy：%.3f'%acc)
+    logging.info('Val_Accuracy:%.3f'%acc)
+
+
 # 测试
-def test(args,model):
+def test(args,model,epoch):
     test_transform = transforms.Compose([
         # transforms.Scale()
         transforms.Resize((224, 224)),
@@ -115,8 +158,9 @@ def test(args,model):
             # print('Acc: %.3f' %(100. * correct / total))
     # Save checkpoint.
         acc = 100. * correct / total
-    print('Accuracy：%.3f'%acc)
-    logging.info('Accuracy：%.3f'%acc)
+        vis.line([acc], [epoch], win='accuracy', update='append')
+    # print('Accuracy：%.3f'%acc)
+    logging.info('Test_Accuracy:%.3f'%acc)
 
 
 # 测试结果写到文件
@@ -163,12 +207,22 @@ def write_csv(results,file_name):
 
 if __name__=="__main__":
     import datetime
-    start = datetime.datetime.now()
+    time = datetime.datetime.now()
     import visdom
+    import os
     vis = visdom.Visdom(env='posture')
-    vis.line([0.], [0.], win='train_loss', opts=dict(title='train loss'))
-    # train(args)
-    test(args)
+    vis.line([0.], [0.], win='posture_loss', opts=dict(title='posture_loss'))
+
+    # 保存日志
+    filename = str(time.month) + str(time.day) + str(time.hour) + '_' + 'fetal'
+    save_dir = filename
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    logfile = save_dir + '/' + filename + '.log'
+    trainlog(logfile)
+
+    train(args)
+    # test(args)
     # test_single(args)
     end = datetime.datetime.now()
-    print(end-start)
+    print(end-time)
