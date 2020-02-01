@@ -52,7 +52,7 @@ class FetalPosture(Dataset):
     def __init__(self,path,mode=None,transform=None):
         self.path= path
         if mode=='train':
-            self.data = read_xlrd('./dataset/training.xls')
+            self.data = read_xlrd('./training.xls')
         elif mode=='test':
             self.data = read_csv_data('./dataset/balanced_test.csv')
             # self.data = read_xlrd('./dataset/test.xlsx')
