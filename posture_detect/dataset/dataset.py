@@ -89,7 +89,7 @@ if __name__ == '__main__':
     for i,(data,label) in enumerate(train_dataloader):
         # if label=='1':
         #     count+=1
-        print(type(data))
+        print(label.item())
     # print(len(train_dataloader.dataset))
     # datas = read_data_single('./test_single')
     # print(datas)

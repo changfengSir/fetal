@@ -2,7 +2,7 @@ import torch
 import torchvision
 
 class Posture(torch.nn.Module):
-    def __init__(self, num_classes=2, is_all=True):
+    def __init__(self, num_classes=3, is_all=True):
         """Declare all needed layers.
 
         Args:
@@ -22,7 +22,7 @@ class Posture(torch.nn.Module):
         # Classification layer.
         self.fc = torch.nn.Sequential(
             torch.nn.Linear(
-            in_features=2048, out_features=2, bias=True)
+            in_features=2048, out_features=3, bias=True)
         # # torch.nn.ReLU(True),
         # torch.nn.LeakyReLU(inplace=True),
         # torch.nn.Dropout(),

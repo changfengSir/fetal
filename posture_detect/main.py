@@ -13,13 +13,13 @@ import logging
 
 parser = argparse.ArgumentParser(description='Pytorch implement Fetal_posture detection')
 parser.add_argument('--batch-size', default=5, type=int)
-parser.add_argument('--lr', default=0.001, type=float)
+parser.add_argument('--lr', default=0.003, type=float)
 parser.add_argument('--epoch', default=50, type=int)
 # parser.add_argument('--model', default='VGG(\'VGG13\')')
-# parser.add_argument('--train_path', default='E:/files/datasets/fetal/data', help='location of train images')
-parser.add_argument('--train_path', default='/home/p920/changfeng/workspace/fetal_data/data/', help='location of train images')
-# parser.add_argument('--test_path', default='E:/files/datasets/fetal/test', help='location of test images')
-parser.add_argument('--test_path', default='/home/p920/changfeng/workspace/fetal_data/test', help='location of test images')
+parser.add_argument('--train_path', default='E:/files/datasets/fetal/data', help='location of train images')
+# parser.add_argument('--train_path', default='/home/p920/changfeng/workspace/fetal_data/data/', help='location of train images')
+parser.add_argument('--test_path', default='E:/files/datasets/fetal/test', help='location of test images')
+# parser.add_argument('--test_path', default='/home/p920/changfeng/workspace/fetal_data/test', help='location of test images')
 parser.add_argument('--save', default='./checkpoint/', help='location of the saved model')
 parser.add_argument('--weight-decay', type=float, default=5e-4)
 args = parser.parse_args()
@@ -40,10 +40,10 @@ def trainlog(logfilepath, head='%(message)s'):
 # 训练
 def train(args):
     train_transform = transforms.Compose([
-        transforms.Resize(224),
-        # transforms.RandomCrop(224,224),
+        transforms.Resize(448),
+        transforms.RandomCrop(448,448),
         # transforms.RandomHorizontalFlip(),
-        transforms.CenterCrop(224),
+        transforms.CenterCrop(448),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor()
         # transforms.Normalize([0.15598613,0.15598613,0.15598613],[0.43895477,0.43895477,0.43895477])
@@ -131,7 +131,7 @@ def val(args,test_dataloader,model,epoch):
 def test(args,model,epoch):
     test_transform = transforms.Compose([
         # transforms.Scale()
-        transforms.Resize((224, 224)),
+        transforms.Resize((448, 448)),
         transforms.ToTensor()
         # transforms.Normalize([0.15598613,0.15598613,0.15598613],[0.43895477,0.43895477,0.43895477])
     ])
@@ -167,7 +167,7 @@ def test(args,model,epoch):
 # 测试结果写到文件
 def test_label(args):
     test_transform = transforms.Compose([
-        transforms.Resize((224, 224)),
+        transforms.Resize((448, 448)),
         transforms.ToTensor()
         # transforms.Normalize([0.15598613,0.15598613,0.15598613],[0.43895477,0.43895477,0.43895477])
     ])
@@ -213,6 +213,7 @@ if __name__=="__main__":
     import os
     vis = visdom.Visdom(env='posture')
     vis.line([0.], [0.], win='posture_loss', opts=dict(title='posture_loss'))
+    vis.line([0.], [0.], win='accuracy', opts=dict(title='posture_loss'))
 
     # 保存日志
     filename = str(time.month) + str(time.day) + str(time.hour) + '_' + 'fetal'
