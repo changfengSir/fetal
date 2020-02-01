@@ -47,7 +47,6 @@ def read_csv_data(path):
     return csv_data_np
 
 
-
 class FetalPosture(Dataset):
     def __init__(self,path,mode=None,transform=None):
         self.path= path
